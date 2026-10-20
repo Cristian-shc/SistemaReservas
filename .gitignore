@@ -1,0 +1,11 @@
+
+backend/.env
+backend/node_modules/
+backend/generated/
+backend/.agents/
+backend/.claude/
+backend/.windsurf/
+frontend/node_modules/
+frontend/.expo/
+frontend/.env
+frontend/.env.
