@@ -19,7 +19,10 @@ export default function App() {
   const [token, setToken] = useState('');
   const [servicios, setServicios] = useState([]);
   const [cargando, setCargando] = useState(false);
-
+  const [reservas, setReservas] = useState([]);
+  const [servicioSeleccionado, setServicioSeleccionado] = useState(null);
+  const [fechaReserva, setFechaReserva] = useState('');
+  const [horaReserva, setHoraReserva] = useState('');
   const [nombreServicio, setNombreServicio] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [duracion, setDuracion] = useState('30');
@@ -167,6 +170,148 @@ export default function App() {
     }
   }
 
+
+
+  
+  async function cargarReservas() {
+    try {
+      const respuesta = await fetch(`${API_URL}/reservas/mis-reservas`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      const datos = await respuesta.json();
+
+      if (!respuesta.ok) {
+        throw new Error(datos.error || 'No se pudieron cargar las reservas');
+      }
+
+      setReservas(datos);
+    } catch (error) {
+      Alert.alert('Error', error.message);
+    }
+  }
+
+  async function cargarTodasLasReservas() {
+    try {
+      const respuesta = await fetch(`${API_URL}/reservas`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      const datos = await respuesta.json();
+
+      if (!respuesta.ok) {
+        throw new Error(datos.error || 'No se pudieron cargar las reservas');
+      }
+
+      setReservas(datos);
+    } catch (error) {
+      Alert.alert('Error', error.message);
+    }
+  }
+
+
+  async function crearReserva() {
+    if (!fechaReserva || !horaReserva) {
+      Alert.alert('Atención', 'Ingresa la fecha y la hora de la reserva');
+      return;
+    }
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaReserva)) {
+      Alert.alert('Fecha incorrecta', 'Usa el formato AAAA-MM-DD. Ejemplo: 2026-11-05');
+      return;
+    }
+
+    if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(horaReserva)) {
+      Alert.alert('Hora incorrecta', 'Usa el formato HH:MM. Ejemplo: 14:30');
+      return;
+    }
+
+    try {
+      setCargando(true);
+
+      const respuesta = await fetch(`${API_URL}/reservas`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          servicioId: servicioSeleccionado.id,
+          fecha: fechaReserva,
+          hora: horaReserva
+        })
+      });
+
+      const datos = await respuesta.json();
+
+      if (!respuesta.ok) {
+        throw new Error(datos.error || 'No se pudo crear la reserva');
+      }
+
+      Alert.alert('Éxito', 'Tu reserva se creó correctamente');
+      setFechaReserva('');
+      setHoraReserva('');
+      setPantalla('servicios');
+    } catch (error) {
+      Alert.alert('Error', error.message);
+    } finally {
+      setCargando(false);
+    }
+  }
+
+  
+  async function completarReserva(id) {
+    try {
+      const respuesta = await fetch(`${API_URL}/reservas/${id}/estado`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          estado: 'completada'
+        })
+      });
+
+      const datos = await respuesta.json();
+
+      if (!respuesta.ok) {
+        throw new Error(datos.error || 'No se pudo completar la reserva');
+      }
+
+      Alert.alert('Éxito', 'Reserva marcada como completada');
+      await cargarTodasLasReservas();
+    } catch (error) {
+      Alert.alert('Error', error.message);
+    }
+  }
+
+  async function cancelarReserva(id) {
+    try {
+      const respuesta = await fetch(`${API_URL}/reservas/${id}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      const datos = await respuesta.json();
+
+      if (!respuesta.ok) {
+        throw new Error(datos.error || 'No se pudo cancelar la reserva');
+      }
+
+      Alert.alert('Éxito', 'Reserva cancelada correctamente');
+      await cargarReservas();
+    } catch (error) {
+      Alert.alert('Error', error.message);
+    }
+  }
+
   async function cerrarSesion() {
     await AsyncStorage.removeItem('token');
     setToken('');
@@ -208,6 +353,168 @@ export default function App() {
           onPress={() => setPantalla('registro')}
         />
       </ScrollView>
+    );
+  }
+  
+  if (pantalla === 'nuevaReserva') {
+    return (
+      <ScrollView contentContainerStyle={styles.contenedor}>
+        <Text style={styles.titulo}>Reservar servicio</Text>
+
+        <Text style={styles.nombre}>
+          {servicioSeleccionado?.nombre}
+        </Text>
+
+        <Text style={styles.etiqueta}>
+          Duración: {servicioSeleccionado?.duracion} minutos
+        </Text>
+
+        <Text style={styles.etiqueta}>
+          Precio: RD$ {servicioSeleccionado?.precio}
+        </Text>
+
+        <TextInput
+          style={styles.input}
+          placeholder="Fecha (AAAA-MM-DD)"
+          value={fechaReserva}
+          onChangeText={setFechaReserva}
+        />
+
+        <TextInput
+          style={styles.input}
+          placeholder="Hora (HH:MM, ejemplo 14:30)"
+          value={horaReserva}
+          onChangeText={setHoraReserva}
+        />
+
+        {cargando ? (
+          <ActivityIndicator size="large" />
+        ) : (
+          <Button
+            title="Confirmar reserva"
+            onPress={crearReserva}
+          />
+        )}
+
+        <View style={styles.separacion} />
+
+        <Button
+          title="Volver a servicios"
+          onPress={() => setPantalla('servicios')}
+        />
+      </ScrollView>
+    );
+  }
+
+
+  if (pantalla === 'misReservas') {
+    return (
+      <View style={styles.contenedor}>
+        <Text style={styles.titulo}>Mis reservas</Text>
+
+        <FlatList
+          style={styles.lista}
+          data={reservas}
+          keyExtractor={item => String(item.id)}
+          ListEmptyComponent={
+            <Text>No tienes reservas registradas.</Text>
+          }
+          renderItem={({ item }) => (
+            <View style={styles.servicio}>
+              <Text style={styles.nombre}>
+                {item.servicio?.nombre || 'Servicio'}
+              </Text>
+
+              <Text>
+                Fecha: {new Date(item.fecha).toLocaleDateString()}
+              </Text>
+
+              <Text>Hora: {item.hora}</Text>
+
+              <Text>Estado: {item.estado}</Text>
+
+              {item.estado === 'pendiente' && (
+                <View style={styles.separacion}>
+                  <Button
+                    title="Cancelar reserva"
+                    onPress={() => {
+                      Alert.alert(
+                        'Cancelar reserva',
+                        '¿Seguro que deseas cancelar esta reserva?',
+                        [
+                          {
+                            text: 'No',
+                            style: 'cancel'
+                          },
+                          {
+                            text: 'Sí, cancelar',
+                            onPress: () => cancelarReserva(item.id)
+                          }
+                        ]
+                      );
+                    }}
+                  />
+                </View>
+              )}
+            </View>
+          )}
+        />
+
+        <Button
+          title="Volver a servicios"
+          onPress={() => setPantalla('servicios')}
+        />
+      </View>
+    );
+  }
+
+  
+  if (pantalla === 'todasReservas') {
+    return (
+      <View style={styles.contenedor}>
+        <Text style={styles.titulo}>Todas las reservas</Text>
+
+        <FlatList
+          style={styles.lista}
+          data={reservas}
+          keyExtractor={item => String(item.id)}
+          ListEmptyComponent={
+            <Text>No hay reservas registradas.</Text>
+          }
+          renderItem={({ item }) => (
+            <View style={styles.servicio}>
+              <Text style={styles.nombre}>
+                {item.servicio?.nombre || 'Servicio'}
+              </Text>
+
+              <Text>
+                Cliente: {item.usuario?.nombre || 'No disponible'}
+              </Text>
+
+              <Text>
+                Fecha: {new Date(item.fecha).toLocaleDateString()}
+              </Text>
+
+              <Text>Hora: {item.hora}</Text>
+              <Text>Estado: {item.estado}</Text>
+
+              {item.estado === 'pendiente' && (
+                <View style={styles.separacion}>
+                  <Button
+                    title="Marcar como completada"
+                    onPress={() => completarReserva(item.id)}
+                  />
+                </View>
+              )}
+            </View>
+          )}
+        />
+
+        <Button
+          title="Volver a servicios"
+          onPress={() => setPantalla('servicios')}
+        />
+      </View>
     );
   }
 
@@ -283,6 +590,31 @@ export default function App() {
         Sesión: {rol === 'admin' ? 'Administrador' : 'Cliente'}
       </Text>
 
+  {rol !== 'admin' && (
+  <View style={styles.separacion}>
+    <Button
+      title="Mis reservas"
+      onPress={async () => {
+        await cargarReservas();
+        setPantalla('misReservas');
+      }}
+    />
+  </View>
+  )}
+
+      {rol === 'admin' && (
+        <View style={styles.separacion}>
+          <Button
+            title="Todas las reservas"
+            onPress={async () => {
+              await cargarTodasLasReservas();
+              setPantalla('todasReservas');
+            }}
+          />
+        </View>
+      )}
+
+
       <View style={styles.separacion}>
         <Button
           title="Actualizar servicios"
@@ -308,14 +640,30 @@ export default function App() {
         ListEmptyComponent={
           <Text>No hay servicios registrados.</Text>
         }
-        renderItem={({ item }) => (
-          <View style={styles.servicio}>
-            <Text style={styles.nombre}>{item.nombre}</Text>
-            <Text>{item.descripcion}</Text>
-            <Text>Duración: {item.duracion} minutos</Text>
-            <Text>Precio: RD$ {item.precio}</Text>
-          </View>
-        )}
+        
+renderItem={({ item }) => (
+  <View style={styles.servicio}>
+    <Text style={styles.nombre}>{item.nombre}</Text>
+    <Text>{item.descripcion}</Text>
+    <Text>Duración: {item.duracion} minutos</Text>
+    <Text>Precio: RD$ {item.precio}</Text>
+
+    {rol !== 'admin' && (
+      <View style={styles.separacion}>
+        <Button
+          title="Reservar servicio"
+          onPress={() => {
+            setServicioSeleccionado(item);
+            setFechaReserva('');
+            setHoraReserva('');
+            setPantalla('nuevaReserva');
+          }}
+        />
+      </View>
+    )}
+  </View>
+)}
+
       />
       <Button title="Cerrar sesión" onPress={cerrarSesion} />
     </View>
@@ -325,38 +673,52 @@ export default function App() {
 const styles = StyleSheet.create({
   contenedor: {
     flexGrow: 1,
-    justifyContent: 'center',
-    padding: 24,
+    padding: 22,
     paddingTop: 60,
-    backgroundColor: '#fff'
+    paddingBottom: 35,
+    backgroundColor: '#F3F6FB'
   },
   titulo: {
-    fontSize: 25,
+    fontSize: 28,
     fontWeight: 'bold',
+    color: '#17365D',
     marginBottom: 24,
     textAlign: 'center'
   },
   input: {
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 14
+    borderColor: '#D5DEEA',
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    paddingVertical: 14,
+    marginBottom: 15,
+    fontSize: 16,
+    color: '#243247'
   },
   servicio: {
-    padding: 14,
-    marginVertical: 8,
+    padding: 18,
+    marginVertical: 9,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8
+    borderColor: '#E0E7F0',
+    borderRadius: 16,
+    shadowColor: '#17365D',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3
   },
   nombre: {
-    fontSize: 18,
-    fontWeight: 'bold'
+    fontSize: 19,
+    fontWeight: 'bold',
+    color: '#17365D',
+    marginBottom: 8
   },
   etiqueta: {
     fontSize: 16,
-    marginBottom: 12,
+    color: '#52647A',
+    marginBottom: 14,
     textAlign: 'center'
   },
   separacion: {

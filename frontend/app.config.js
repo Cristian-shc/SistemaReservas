@@ -5,8 +5,11 @@ expo: {
     slug: "sistema-reservas",
     version: "1.0.0",
     orientation: "portrait",
+    plugins: [
+    "expo-status-bar"
+    ],
     extra: {
-    apiUrl: "http://192.168.1.71:3000"
+    apiUrl: "http://192.168.1.4:3000"
     }
 }
 };
