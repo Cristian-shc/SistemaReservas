@@ -22,6 +22,7 @@ model Servicio {
   descripcion String
   duracion    Int
   precio      Float
+  activo      Boolean   @default(true)
   reservas    Reserva[]
 }
 

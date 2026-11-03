@@ -9,7 +9,7 @@ expo: {
     "expo-status-bar"
     ],
     extra: {
-    apiUrl: "http://192.168.1.4:3000"
+    apiUrl: "http://192.168.1.153:3000"
     }
 }
 };

@@ -1,6 +1,7 @@
 
 const prisma = require('../db');
 
+
 async function crearReserva(req, res) {
     try {
         const { servicioId, fecha, hora } = req.body;
@@ -12,20 +13,9 @@ async function crearReserva(req, res) {
             });
         }
 
-        const fechaReserva = new Date(`${fecha}T00:00:00`);
-
-        if (Number.isNaN(fechaReserva.getTime())) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
             return res.status(400).json({
-                error: 'La fecha no es válida'
-            });
-        }
-
-        const hoy = new Date();
-        hoy.setHours(0, 0, 0, 0);
-
-        if (fechaReserva < hoy) {
-            return res.status(400).json({
-                error: 'No puedes reservar una fecha pasada'
+                error: 'La fecha debe tener el formato AAAA-MM-DD'
             });
         }
 
@@ -35,13 +25,54 @@ async function crearReserva(req, res) {
             });
         }
 
+        const fechaReserva = new Date(`${fecha}T00:00:00`);
+        const fechaValida = !Number.isNaN(fechaReserva.getTime()) &&
+            fechaReserva.toLocaleDateString('en-CA') === fecha;
+
+        if (!fechaValida) {
+            return res.status(400).json({
+                error: 'La fecha no es válida'
+            });
+        }
+
+        const fechaHoraReserva = new Date(`${fecha}T${hora}:00`);
+
+        if (fechaHoraReserva <= new Date()) {
+            return res.status(400).json({
+                error: 'La fecha y hora de la reserva deben ser futuras'
+            });
+        }
+
         const servicio = await prisma.servicio.findUnique({
             where: { id: idServicio }
         });
 
+        console.log('Servicio encontrado:', servicio);
+        
         if (!servicio) {
             return res.status(404).json({
                 error: 'El servicio no existe'
+            });
+        }
+
+        if (!servicio.activo) {
+            return res.status(400).json({
+                error: 'Este servicio no está disponible para reservas'
+            });
+        }
+
+        const reservaExistente = await prisma.reserva.findFirst({
+            where: {
+                usuarioId: req.usuario.id,
+                servicioId: idServicio,
+                fecha: fechaReserva,
+                estado: 'pendiente'
+            }
+        });
+
+        if (reservaExistente) {
+            return res.status(409).json({
+                error: 'Ya tienes una reserva pendiente para este servicio en esa fecha'
             });
         }
 
@@ -50,24 +81,26 @@ async function crearReserva(req, res) {
                 fecha: fechaReserva,
                 hora,
                 usuarioId: req.usuario.id,
-                servicioId: idServicio
+                servicioId: idServicio,
+                estado: 'pendiente'
             },
             include: {
                 servicio: true
             }
         });
 
-        res.status(201).json({
+        return res.status(201).json({
             mensaje: 'Reserva creada correctamente',
             reserva
         });
     } catch (error) {
         console.error('Error al crear reserva:', error);
-        res.status(500).json({
+        return res.status(500).json({
             error: 'Error al crear la reserva'
         });
     }
 }
+
 
 async function misReservas(req, res) {
     try {
